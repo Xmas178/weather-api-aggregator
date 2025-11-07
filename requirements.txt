@@ -1,0 +1,9 @@
+---
+
+## 📦 **requirements.txt**
+```txt
+fastapi
+uvicorn
+httpx
+python-dotenv
+xmltodict

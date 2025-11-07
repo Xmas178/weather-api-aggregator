@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sääpalvelu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom, #8fc6ff, #e0f2ff);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+        }
+
+        #weather {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            min-width: 250px;
+        }
+
+        input {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            margin-right: 0.5rem;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: #0077ff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005fcc;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sääpalvelu</h1>
+    <div>
+        <input type="text" id="city" placeholder="Syötä kaupunki" />
+        <button onclick="getWeather()">Hae sää</button>
+    </div>
+    <div id="weather"></div>
+
+    <script>
+        async function getWeather() {
+            const city = document.getElementById('city').value.trim();
+            const weatherDiv = document.getElementById('weather');
+            if (!city) {
+                weatherDiv.innerHTML = '<p>Syötä kaupunki!</p>';
+                return;
+            }
+
+            weatherDiv.innerHTML = '<p>Haetaan tietoja...</p>';
+            try {
+                // ✅ Vaihda tämä osoite vastaamaan oman backendisi URLia
+                const res = await fetch(`http://localhost:8000/weather?city=${encodeURIComponent(city)}`);
+                if (!res.ok) throw new Error('Virhe haussa');
+                const data = await res.json();
+
+                weatherDiv.innerHTML = `
+          <h2>${data.city || city}</h2>
+          <p>Lämpötila: ${data.temperature} °C</p>
+          <p>Kuvaus: ${data.description}</p>
+          <p>Lähde: ${data.source}</p>
+        `;
+            } catch (err) {
+                console.error(err);
+                weatherDiv.innerHTML = '<p>Virhe haettaessa säätietoja.</p>';
+            }
+        }
+    </script>
+</body>
+
+</html>

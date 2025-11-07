@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Sääpalvelu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom right, #87ceeb, #f0f8ff);
+            min-height: 100vh;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            flex-direction: column;
+            color: #222;
+            margin: 0;
+            padding-top: 50px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            width: 300px;
+        }
+
+        input {
+            width: 80%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        button {
+            background: #0077cc;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005fa3;
+        }
+
+        p {
+            margin: 6px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🌤️ Sääpalvelu</h1>
+
+    <div class="container">
+        <input id="city" type="text" placeholder="Kaupunki (esim. Tampere)">
+        <br>
+        <button onclick="getWeather()">Hae sää</button>
+
+        <div id="result" style="margin-top: 15px;">
+            <p id="temp"></p>
+            <p id="wind"></p>
+            <p id="humidity"></p>
+            <p id="pressure"></p>
+            <p id="weather"></p>
+        </div>
+    </div>
+
+    <script>
+        async function getWeather() {
+            const city = document.getElementById("city").value.trim();
+            if (!city) {
+                alert("Anna kaupungin nimi!");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/weather?city=${encodeURIComponent(city)}`);
+                if (!res.ok) throw new Error("Virhe haettaessa säätietoja");
+                const data = await res.json();
+
+                if (!data.data) {
+                    document.getElementById("result").innerHTML = "<p>Ei tietoja.</p>";
+                    return;
+                }
+
+                const weather = data.data;
+
+                document.getElementById("temp").textContent = `Lämpötila: ${weather.temperature ?? '-'} °C`;
+                document.getElementById("wind").textContent = `Tuuli: ${weather.wind_speed ?? '-'} m/s`;
+                document.getElementById("humidity").textContent = `Kosteus: ${weather.humidity ?? '-'} %`;
+                document.getElementById("pressure").textContent = `Ilmanpaine: ${weather.pressure ?? '-'} hPa`;
+                document.getElementById("weather").textContent = `Säätila: ${weather.weather ?? '-'}`;
+            } catch (err) {
+                document.getElementById("result").innerHTML = `<p style="color:red;">⚠️ ${err.message}</p>`;
+            }
+        }
+        document.getElementById("city").addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                getWeather();
+            }
+        });
+
+
+    </script>
+</body>
+
+</html>
