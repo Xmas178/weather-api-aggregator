@@ -167,7 +167,7 @@ weather-api-aggregator/
 
 ## Kehittäjälle
 
-**Sami**
+**Xmas178**
 - GitHub: [@Xmas178](https://github.com/Xmas178)
 - Email: xmas178@gmail.com
 
