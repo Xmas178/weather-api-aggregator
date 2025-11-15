@@ -7,3 +7,5 @@ uvicorn
 httpx
 python-dotenv
 xmltodict
+pandas
+geopy

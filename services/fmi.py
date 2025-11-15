@@ -198,15 +198,15 @@ class FMIService:
         wind = data.get("wind_speed", 0)
 
         if rain and rain > 0.2:
-            return "sadetta"
+            return "rainy"
         elif wind and wind > 8:
-            return "tuulista"
+            return "windy"
         elif temp < -5:
-            return "pakkasta"
+            return "freezing"
         elif temp > 20:
-            return "lämmintä ja selkeää"
+            return "warm and clear"
         else:
-            return "pilvistä tai puolipilvistä"
+            return "cloudy or partly cloudy"
 
 
 # Yksittäinen instanssi muiden moduulien käytettäväksi

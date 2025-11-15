@@ -1,164 +1,205 @@
+"""
+Weather API - FastAPI Backend
+
+Aggregates weather data from multiple sources:
+- FMI (Finnish Meteorological Institute) - Finland only
+- Yr.no (Norwegian Meteorological Institute) - Worldwide
+
+Stores historical data for analysis and trends.
+"""
+
 from fastapi import FastAPI
 from dotenv import load_dotenv
-import os
-import httpx
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
-# Ladataan .env tiedosto
+# Load environment variables
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(
+    title="Weather API",
+    description="Multi-source weather data aggregator with analytics",
+    version="1.0.0",
+)
 
-
-@app.get("/test-foreca")
-async def test_foreca():
-    """Testataan API yhteyttä"""
-    user = os.getenv("FORECA_USER")
-    password = os.getenv("FORECA_PASSWORD")
-
-    # Haetaan token
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://pfa.foreca.com/authorize/token?expire_hours=2",
-            json={"user": user, "password": password},
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            token = data.get("access_token")
-            return {
-                "status": "success",
-                "token_received": True,
-                "token_length": len(token),
-            }
-        else:
-            return {"status": "error", "status_code": response.status_code}
-
-
-@app.get("/find-oulu")
-async def find_oulu():
-    """Etsitään Oulun ID"""
-    user = os.getenv("FORECA_USER")
-    password = os.getenv("FORECA_PASSWORD")
-
-    # 1. Haetaan token
-    async with httpx.AsyncClient() as client:
-        auth_response = await client.post(
-            "https://pfa.foreca.com/authorize/token?expire_hours=2",
-            json={"user": user, "password": password},
-        )
-
-        if auth_response.status_code != 200:
-            return {"error": "Authentication failed"}
-
-        token = auth_response.json().get("access_token")
-
-        # 2. Haetaan Oulu
-        headers = {"Authorization": f"Bearer {token}"}
-        search_response = await client.get(
-            "https://pfa.foreca.com/api/v1/location/search/Oulu", headers=headers
-        )
-
-        if search_response.status_code == 200:
-            data = search_response.json()
-            return {"status": "success", "locations": data}
-        else:
-            return {"status": "error", "status_code": search_response.status_code}
-
-
-@app.get("/weather/oulu")
-async def get_oulu_weather():
-    """Haetaan Oulun sää kaikista lähteistä"""
-    from services.fmi import fmi_service
-    from services.yr import yr_service
-    from services.foreca import foreca_service
-    from fastapi.staticfiles import StaticFiles
-
-    sources = {}
-
-    # 1. Foreca
-
-    try:
-
-        foreca_weather = await foreca_service.get_current_weather()
-        if foreca_weather:
-            sources["foreca"] = foreca_weather
-            print("✅ Foreca data haettu")
-    except Exception as e:
-        print(f"❌ Foreca virhe: {e}")
-
-    # 2. FMI
-    try:
-        fmi_weather = await fmi_service.get_current_weather()
-        if fmi_weather:
-            sources["fmi"] = fmi_weather
-            print("✅ FMI data haettu")
-    except Exception as e:
-        print(f"❌ FMI virhe: {e}")
-
-    # 3. Yr.no
-    try:
-        yr_weather = await yr_service.get_current_weather()
-        if yr_weather:
-            sources["yr"] = yr_weather
-            print("✅ Yr.no data haettu")
-    except Exception as e:
-        print(f"❌ Yr.no virhe: {e}")
-
-    # Palautetaan kaikki lähteet
-    return {
-        "location": "Oulu",
-        "latitude": 65.01,
-        "longitude": 25.47,
-        "sources": sources,
-        "timestamp": "2025-11-04T15:30:00Z",
-    }
-
-
-@app.get("/test-fmi")
-async def test_fmi():
-    """Testataan FMI API yhteyttä"""
-    from services.fmi import fmi_service
-
-    weather = await fmi_service.get_current_weather()
-
-    if weather:
-        return {"status": "success", "source": "FMI", "data": weather}
-    else:
-        return {"status": "error", "message": "FMI data ei saatavilla"}
-
-
-@app.get("/test-yr")
-async def test_yr():
-    """Testataan Yr.no API yhteyttä"""
-    from services.yr import yr_service
-
-    weather = await yr_service.get_current_weather()
-
-    if weather:
-        return {"status": "success", "source": "Yr.no", "data": weather}
-    else:
-        return {"status": "error", "message": "Yr.no data ei saatavilla"}
+# CORS middleware - allow frontend to access API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/weather")
 async def get_weather(city: str):
-    from services.fmi import fmi_service
+    """
+    Get current weather for a city from multiple sources.
 
-    data = await fmi_service.get_current_weather(place=city)
-    if not data:
-        return {"error": f"Ei löydy säätietoja kaupungille '{city}'"}
+    - Finnish cities: Returns FMI data (most accurate for Finland)
+    - Other cities: Returns Yr.no data (worldwide coverage)
+    - Saves all observations to database for historical analysis
+
+    Args:
+        city: City name (e.g., "Helsinki", "London", "Tokyo")
+
+    Returns:
+        Weather data with temperature, humidity, wind, pressure, etc.
+    """
+    from services.fmi import fmi_service
+    from services.yr import yr_service
+    from database import weather_db
+
+    sources = {}
+
+    # Fetch from FMI (Finnish Meteorological Institute)
+    # Only works for Finnish cities
+    try:
+        fmi_data = await fmi_service.get_current_weather(place=city)
+        if fmi_data:
+            sources["FMI"] = fmi_data
+            weather_db.save_observation(city, "FMI", fmi_data)
+    except Exception as e:
+        print(f"FMI error: {e}")
+
+    # Fetch from Yr.no (Norwegian Meteorological Institute)
+    # Works worldwide with automatic geocoding
+    try:
+        yr_data = await yr_service.get_current_weather(city)
+        if yr_data:
+            sources["Yr"] = yr_data
+            weather_db.save_observation(city, "Yr", yr_data)
+    except Exception as e:
+        print(f"Yr error: {e}")
+
+    # Combine data from both sources if available
+    # Use FMI pressure if available, otherwise Yr.no pressure
+    if sources:
+        if "FMI" in sources and "Yr" in sources:
+            # Combine: Use FMI as base, fill missing data from Yr.no
+            combined_data = sources["FMI"].copy()
+            if combined_data.get("pressure") is None:
+                combined_data["pressure"] = sources["Yr"].get("pressure")
+            if combined_data.get("wind_speed") is None:
+                combined_data["wind_speed"] = sources["Yr"].get("wind_speed")
+
+            return {"city": city, "source": "FMI + Yr.no", "data": combined_data}
+        else:
+            # Single source available
+            primary_source = "FMI" if "FMI" in sources else "Yr"
+            return {
+                "city": city,
+                "source": primary_source,
+                "data": sources[primary_source],
+            }
+    else:
+        return {"error": f"No weather data found for '{city}'"}
+
+
+@app.get("/weather/history/{city}")
+async def get_weather_history(city: str, hours: int = 24):
+    """
+    Get historical weather data for a city.
+
+    Args:
+        city: City name
+        hours: Number of hours of history (default: 24)
+
+    Returns:
+        List of past weather observations
+    """
+    from database import weather_db
+
+    history = weather_db.get_history(city, hours)
 
     return {
         "city": city,
-        "source": "FMI",
-        "data": data
+        "hours": hours,
+        "observation_count": len(history),
+        "data": history,
     }
 
 
-"""@app.get("/weather")
-def get_weather(city: str):
-    return {"city": city, "temperature": 5, "description": "Pilvistä"}
-"""
+@app.get("/weather/stats/{city}")
+async def get_weather_stats(city: str, hours: int = 24):
+    """
+    Get weather statistics for a city.
 
+    Calculates min, max, and average temperatures.
+
+    Args:
+        city: City name
+        hours: Time period for statistics (default: 24)
+
+    Returns:
+        Statistical summary of weather data
+    """
+    from database import weather_db
+
+    stats = weather_db.get_statistics(city, hours)
+
+    return {"city": city, "period_hours": hours, "statistics": stats}
+
+
+@app.get("/weather/trend/{city}")
+async def get_temperature_trend(city: str, hours: int = 24):
+    """
+    Analyze temperature trend (warming/cooling/stable).
+
+    Args:
+        city: City name
+        hours: Time period for analysis (default: 24)
+
+    Returns:
+        Trend analysis with temperature change
+    """
+    from analytics import analytics
+
+    trend = analytics.get_temperature_trend(city, hours)
+
+    return {"city": city, "period_hours": hours, "trend_analysis": trend}
+
+
+@app.get("/weather/compare/{city}")
+async def compare_sources(city: str, hours: int = 24):
+    """
+    Compare data accuracy between different weather sources.
+
+    Shows average, min, max temperatures from each source.
+
+    Args:
+        city: City name
+        hours: Time period for comparison (default: 24)
+
+    Returns:
+        Comparison table of all data sources
+    """
+    from analytics import analytics
+
+    comparison = analytics.compare_sources(city, hours)
+
+    return {"city": city, "period_hours": hours, "source_comparison": comparison}
+
+
+@app.get("/weather/hourly/{city}")
+async def get_hourly_data(city: str, hours: int = 24):
+    """
+    Get hourly temperature averages for charts.
+
+    Args:
+        city: City name
+        hours: Time period (default: 24)
+
+    Returns:
+        Hourly data points for visualization
+    """
+    from analytics import analytics
+
+    hourly = analytics.get_hourly_averages(city, hours)
+
+    return {"city": city, "period_hours": hours, "hourly_data": hourly}
+
+
+# Serve frontend static files
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
