@@ -27,6 +27,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:5174",
         "https://weather-frontend-ecru.vercel.app",
+        "https://weather.tommilammi.fi",
     ],
     allow_credentials=True,
     allow_methods=["*"],
