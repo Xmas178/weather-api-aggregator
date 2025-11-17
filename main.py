@@ -21,11 +21,13 @@ app = FastAPI(
     description="Multi-source weather data aggregator with analytics",
     version="1.0.0",
 )
-
-# CORS middleware - allow frontend to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://weather-frontend-ecru.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
