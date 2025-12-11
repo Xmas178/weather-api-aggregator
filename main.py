@@ -18,8 +18,9 @@ load_dotenv()
 
 app = FastAPI(
     title="Weather API Aggregator",
-    version="1.0.0",  # Added version number to test GitHub Actions
+    version="1.0.0",
     description="Automatic deployment via GitHub Actions - TEST",
+    root_path="/api",  # Tell FastAPI it's behind /api/ prefix
 )
 app.add_middleware(
     CORSMiddleware,
