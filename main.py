@@ -17,9 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 app = FastAPI(
-    title="Weather API",
-    description="Multi-source weather data aggregator with analytics",
-    version="1.0.0",
+    title="Weather API Aggregator",
+    version="1.0.0",  # Added version number to test GitHub Actions
+    description="Automatic deployment via GitHub Actions - TEST",
 )
 app.add_middleware(
     CORSMiddleware,
