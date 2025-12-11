@@ -20,6 +20,8 @@ app = FastAPI(
     title="Weather API Aggregator",
     version="1.0.0",
     description="Automatic deployment via GitHub Actions - TEST",
+    openapi_url="/api/openapi.json",  # Absolute path
+    docs_url="/api/docs",  # Absolute path
 )
 app.add_middleware(
     CORSMiddleware,
